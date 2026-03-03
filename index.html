@@ -193,7 +193,16 @@ html,body { height:100%; overflow:hidden; font-family:'Noto Sans JP',sans-serif;
 
 /* ══ 編集ビュー ══ */
 #screen-edit { background:#fff9f5; padding:0; }
-.edit-day-tabs-wrap { position:sticky; top:0; z-index:50; padding:10px 16px 6px; background:#fff9f5; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+.edit-day-tabs-wrap {
+  position:fixed; z-index:99;
+  top: max(60px, calc(env(safe-area-inset-top) + 60px));
+  left:0; right:0;
+  background:#fff9f5;
+  padding:8px 16px 6px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.07);
+  display:none;
+}
+.edit-day-tabs-wrap.visible { display:block; }
 .edit-day-tabs { display:flex; gap:6px; overflow-x:auto; padding-bottom:10px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
 .edit-day-tabs::-webkit-scrollbar { display:none; }
 .edit-day-tab { flex-shrink:0; padding:6px 14px; border-radius:20px; border:2px solid #f0d8e8; background:#fff; font-size:0.78rem; font-weight:700; color:#c0a8a0; cursor:pointer; font-family:'Noto Sans JP',sans-serif; white-space:nowrap; }
@@ -223,6 +232,18 @@ html,body { height:100%; overflow:hidden; font-family:'Noto Sans JP',sans-serif;
 .edit-type-btn.selected { border-color:#555; transform:scale(1.04); }
 .edit-save-btn { width:100%; padding:14px; background:#d47fa6; color:#fff; border:none; border-radius:16px; font-size:1rem; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif; margin-top:6px; }
 .edit-cancel-btn { width:100%; padding:11px; background:#f5f0ee; color:#888; border:none; border-radius:16px; font-size:0.9rem; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif; margin-top:8px; }
+
+/* ══ インポートモーダル ══ */
+.import-modal-bg { position:fixed; inset:0; z-index:400; background:rgba(0,0,0,0.5); display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+.import-modal-bg.show { opacity:1; pointer-events:all; }
+.import-modal-sheet { background:#fff; border-radius:24px 24px 0 0; width:100%; max-width:480px; padding:20px 20px calc(30px + env(safe-area-inset-bottom)); transform:translateY(100%); transition:transform 0.3s cubic-bezier(.4,0,.2,1); }
+.import-modal-bg.show .import-modal-sheet { transform:translateY(0); }
+.import-title { font-family:'Fredoka One',cursive; font-size:1.2rem; color:#333; margin-bottom:6px; text-align:center; }
+.import-desc { font-size:0.75rem; color:#aaa; text-align:center; margin-bottom:14px; line-height:1.6; }
+.import-textarea { width:100%; height:180px; padding:12px; border:2px solid #f0e0d8; border-radius:14px; font-size:0.82rem; font-family:'Noto Sans JP',sans-serif; color:#333; resize:none; outline:none; line-height:1.6; }
+.import-textarea:focus { border-color:#d47fa6; }
+.import-btn { width:100%; padding:14px; background:#d47fa6; color:#fff; border:none; border-radius:16px; font-size:1rem; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif; margin-top:10px; }
+.import-cancel { width:100%; padding:11px; background:#f5f0ee; color:#888; border:none; border-radius:16px; font-size:0.9rem; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif; margin-top:8px; }
 </style>
 </head>
 <body>
@@ -240,6 +261,9 @@ html,body { height:100%; overflow:hidden; font-family:'Noto Sans JP',sans-serif;
 
 <!-- 編集ビュー -->
 <div class="screen" id="screen-edit"></div>
+
+<!-- 編集タブ固定バー -->
+<div class="edit-day-tabs-wrap" id="editTabsBar"></div>
 
 <!-- いまビュー -->
 <div class="screen active" id="screen-now"></div>
@@ -431,9 +455,9 @@ function switchTab(name,btn){
   document.getElementById('screen-'+name).classList.add('active');
   btn.classList.add('active');
   activeTab=name;
-  if(name==='now')   renderNow();
-  if(name==='today') renderToday();
-  if(name==='week')  renderWeek();
+  if(name==='now')   { document.getElementById('editTabsBar').classList.remove('visible'); renderNow(); }
+  if(name==='today') { document.getElementById('editTabsBar').classList.remove('visible'); renderToday(); }
+  if(name==='week')  { document.getElementById('editTabsBar').classList.remove('visible'); renderWeek(); }
   if(name==='edit')  renderEdit();
 }
 
@@ -724,6 +748,117 @@ function closeModal(e){
     document.getElementById('modal').classList.remove('show');
 }
 
+
+// ══════════════════════════════
+// テキストインポート
+// ══════════════════════════════
+const TYPE_KEYWORDS = {
+  'act-sleep':    ['就寝','おやすみ','寝る'],
+  'act-meal':     ['朝食','昼食','夕食','食事','ごはん','昼ご飯','夜ご飯'],
+  'act-bath':     ['入浴','お風呂','ふろ','シャワー'],
+  'act-juku':     ['早稲田','アカデミー','塾'],
+  'act-test':     ['テスト','カリテ','試験'],
+  'act-lesson':   ['学校','英会話','英検','レッスン','習い事'],
+  'act-homework': ['宿題','勉強','学習','見直し','解き直し'],
+  'act-free':     ['自由','のんびり'],
+  'act-dance':    ['ダンス'],
+  'act-move':     ['移動','家を出る','出発','帰宅','終了'],
+  'act-home':     ['起床','朝食・支度','起き'],
+};
+
+function guessType(name) {
+  for (const [cls, words] of Object.entries(TYPE_KEYWORDS)) {
+    if (words.some(w => name.includes(w))) return cls;
+  }
+  return 'act-custom';
+}
+
+const DAY_EMOJIS = {
+  '起床':'☀️','家を出':'🎒','学校':'🏫','帰宅':'🏠','自由時間':'⭐️',
+  '宿題':'📚','移動':'🚶','早稲田':'✏️','授業終了':'🏁','夕食':'🍚',
+  '昼食':'🍱','朝食':'🥣','入浴':'🛁','就寝':'💤','英会話':'🌍',
+  '英検':'👴','ダンス':'👀','テスト':'🎯','解き直し':'📝','のんびり':'😌',
+};
+
+function addEmoji(name) {
+  for (const [key, emoji] of Object.entries(DAY_EMOJIS)) {
+    if (name.includes(key)) return emoji + ' ' + name;
+  }
+  return '📌 ' + name;
+}
+
+const TAG_KEYWORDS = [
+  ['塾','🏫 塾の日'], ['英会話','🗣 英会話の日'], ['英検','📖 英検レッスンの日'],
+  ['カリテ','📝 カリテの日'], ['ダンス','💃 ダンスの日'], ['テスト','📝 テストの日'],
+];
+const THEME_MAP = {'月':0,'火':0,'水':1,'木':2,'金':3,'土':4,'日':5};
+
+function parseImportText(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  const newDays = [];
+  let cur = null;
+
+  for (const line of lines) {
+    // 日付行: "3/10 月" or "3/10 月（塾の日）"
+    const dayMatch = line.match(/^(\d+\/\d+)\s*([月火水木金土日])/);
+    if (dayMatch) {
+      if (cur) newDays.push(cur);
+      const dow = dayMatch[2];
+      const tagMatch = line.match(/[（(](.+?)[）)]/);
+      // タグ自動判定
+      let tag = '📅 予定';
+      for (const [kw, t] of TAG_KEYWORDS) {
+        if (line.includes(kw)) { tag = t; break; }
+      }
+      if (tagMatch) tag = tagMatch[1];
+      cur = {
+        label: dayMatch[1] + ' ' + dow,
+        tag,
+        ti: THEME_MAP[dow] ?? 0,
+        blocks: []
+      };
+      continue;
+    }
+
+    // ブロック行: "06:30 起床・朝食・支度" or "06:30 起床・朝食・支度（50分）"
+    const blockMatch = line.match(/^(\d{1,2}:\d{2})\s+(.+)/);
+    if (blockMatch && cur) {
+      const time = blockMatch[1].padStart(5, '0');
+      const name = blockMatch[2];
+      const nameWithEmoji = addEmoji(name);
+      cur.blocks.push({ t: time, n: nameWithEmoji, c: guessType(name) });
+    }
+  }
+  if (cur) newDays.push(cur);
+  return newDays;
+}
+
+function openImportModal() {
+  document.getElementById('importText').value = '';
+  document.getElementById('importModal').classList.add('show');
+}
+
+function closeImportModal() {
+  document.getElementById('importModal').classList.remove('show');
+}
+
+function doImport() {
+  const text = document.getElementById('importText').value.trim();
+  if (!text) { alert('テキストを貼り付けてください'); return; }
+  const newDays = parseImportText(text);
+  if (newDays.length === 0) { alert('読み取れませんでした。\n形式を確認してください'); return; }
+
+  if (!confirm(newDays.length + '日分のスケジュールを反映しますか？\n（現在のデータは上書きされます）')) return;
+
+  // DAYSを置き換え
+  DAYS.length = 0;
+  newDays.forEach(d => DAYS.push(d));
+  saveData();
+  closeImportModal();
+  renderEdit();
+  alert('✅ ' + newDays.length + '日分を反映しました！');
+}
+
 // ══════════════════════════════
 // データ保存・読み込み（localStorage）
 // ══════════════════════════════
@@ -786,11 +921,21 @@ function renderEdit() {
   });
   listHtml += '</div>';
 
+  // 日付タブを固定バーに表示
+  let tabsBar = document.getElementById('editTabsBar');
+  tabsBar.innerHTML = tabsHtml;
+  tabsBar.classList.add('visible');
+
+  // ヘッダー高さ + タブバー高さ分のpadding-topを設定
+  const headerH = document.querySelector('.app-header').offsetHeight;
+  const tabsH = tabsBar.offsetHeight || 44;
+  el.style.paddingTop = (headerH + tabsH + 4) + 'px';
+
   el.innerHTML = 
-    `<div class="edit-day-tabs-wrap">${tabsHtml}</div>` +
     `<div style="padding:10px 16px 20px;">` +
     listHtml +
     `<button class="add-block-fab" onclick="openEditModal(null)">＋ 予定を追加</button>` +
+    `<button class="add-block-fab" style="margin-top:8px;background:linear-gradient(135deg,#5ec4b1,#3dadd6)" onclick="openImportModal()">📋 テキストで一括更新</button>` +
     `</div>`;
 }
 
@@ -901,6 +1046,23 @@ setInterval(()=>{
     </div>
     <button class="edit-save-btn" onclick="saveBlock()">💾 保存する</button>
     <button class="edit-cancel-btn" onclick="closeEditModal()">キャンセル</button>
+  </div>
+</div>
+
+<!-- インポートモーダル -->
+<div class="import-modal-bg" id="importModal">
+  <div class="import-modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="import-title">📋 テキストで一括更新</div>
+    <div class="import-desc">
+      以下の形式で貼り付けると自動で反映されます<br>
+      <b>3/10 月（塾の日）</b><br>
+      <b>06:30 起床・朝食・支度</b><br>
+      <b>07:20 家を出る</b> …
+    </div>
+    <textarea class="import-textarea" id="importText" placeholder="ここに予定テキストを貼り付け..."></textarea>
+    <button class="import-btn" onclick="doImport()">✨ 反映する</button>
+    <button class="import-cancel" onclick="closeImportModal()">キャンセル</button>
   </div>
 </div>
 </body>
