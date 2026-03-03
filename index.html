@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="スケジュール">
+<meta name="theme-color" content="#d47fa6">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-192.svg">
+<title>みずきちゃんのスケジュール</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Fredoka+One&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { height:100%; overflow:hidden; font-family:'Noto Sans JP',sans-serif; background:#fff9f5; }
+
+/* ── ヘッダー ── */
+.app-header {
+  background: linear-gradient(135deg,#d47fa6,#e85e9a);
+  padding: 12px 16px 10px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  display: flex; align-items: center; justify-content: space-between;
+  position: fixed; top:0; left:0; right:0; z-index:100;
+  box-shadow: 0 2px 12px rgba(212,127,166,0.4);
+}
+.app-title { font-family:'Fredoka One',cursive; color:#fff; font-size:1.15rem; }
+.app-date  { font-size:0.7rem; color:rgba(255,255,255,0.85); margin-top:1px; }
+.header-right { display:flex; align-items:center; gap:8px; }
+.now-badge { background:rgba(255,255,255,0.25); color:#fff; font-size:0.78rem; font-weight:700; padding:4px 10px; border-radius:20px; font-variant-numeric:tabular-nums; }
+.notif-btn { background:rgba(255,255,255,0.2); border:none; color:#fff; width:32px; height:32px; border-radius:50%; font-size:1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+
+/* ── タブバー ── */
+.tab-bar {
+  position:fixed; bottom:0; left:0; right:0; z-index:100;
+  background:#fff; border-top:1px solid #f0e0d8;
+  display:flex; padding-bottom:env(safe-area-inset-bottom);
+  box-shadow:0 -2px 12px rgba(0,0,0,0.06);
+}
+.tab-btn { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 4px 6px; background:none; border:none; cursor:pointer; font-family:'Noto Sans JP',sans-serif; transition:all 0.15s; }
+.tab-icon { font-size:1.4rem; line-height:1; }
+.tab-label { font-size:0.6rem; font-weight:700; color:#ccc; margin-top:2px; transition:color 0.15s; }
+.tab-btn.active .tab-label { color:#d47fa6; }
+.tab-btn.active .tab-icon { transform:scale(1.12); }
+
+/* ── スクリーン共通 ── */
+.screen {
+  position:fixed; top:0; left:0; right:0; bottom:0;
+  padding-top: max(60px, calc(env(safe-area-inset-top) + 60px));
+  padding-bottom: calc(56px + env(safe-area-inset-bottom));
+  overflow-y:auto; overflow-x:hidden; display:none;
+  -webkit-overflow-scrolling:touch;
+}
+.screen.active { display:block; }
+
+/* ══ いまビュー ══ */
+#screen-now { background:#fff9f5; padding:14px 16px 20px; }
+
+.now-day-label {
+  font-size:0.72rem; font-weight:700; color:#ccc; margin-bottom:10px;
+  display:flex; align-items:center; gap:6px;
+}
+.now-day-label span { background:#fce4ec; color:#d47fa6; padding:2px 8px; border-radius:10px; }
+
+.now-card {
+  background:#fff; border-radius:22px;
+  box-shadow:0 6px 24px rgba(0,0,0,0.07); overflow:hidden; margin-bottom:14px;
+}
+.now-card-top { padding:18px 18px 12px; }
+.now-card-eyebrow { font-size:0.68rem; font-weight:700; color:#bbb; letter-spacing:.05em; margin-bottom:4px; }
+.now-card-time { font-size:0.78rem; font-weight:700; color:#aaa; margin-bottom:6px; }
+.now-card-name { font-family:'Fredoka One',cursive; font-size:1.9rem; color:#333; line-height:1.2; }
+.progress-wrap { margin:0 18px; height:10px; background:#f0ebe8; border-radius:5px; overflow:hidden; }
+.progress-bar  { height:100%; border-radius:5px; transition:width 1s linear; }
+.now-card-foot { padding:10px 18px 16px; font-size:0.82rem; color:#aaa; }
+.now-card-foot strong { color:#d47fa6; font-size:1.1rem; font-weight:900; }
+
+.next-section-label { font-size:0.7rem; font-weight:700; color:#bbb; letter-spacing:.05em; margin-bottom:8px; }
+.next-list { display:flex; flex-direction:column; gap:7px; }
+.next-item {
+  background:#fff; border-radius:14px; padding:11px 14px;
+  display:flex; align-items:center; gap:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.04);
+}
+.next-dot  { width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+.next-time { font-size:0.72rem; font-weight:700; color:#bbb; min-width:36px; flex-shrink:0; }
+.next-name { font-size:0.88rem; font-weight:700; color:#333; flex:1; }
+.no-schedule { text-align:center; padding:60px 20px; font-size:1rem; color:#ccc; font-weight:700; line-height:1.8; }
+
+/* ══ 今日ビュー ══ */
+#screen-today { background:#fff9f5; }
+
+.today-header {
+  padding:12px 16px 8px;
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+}
+.day-nav { display:flex; align-items:center; gap:8px; }
+.nav-btn { width:34px; height:34px; border-radius:50%; border:2px solid #f0d8e8; background:#fff; cursor:pointer; font-size:1.1rem; display:flex; align-items:center; justify-content:center; color:#d47fa6; }
+.today-label { font-family:'Fredoka One',cursive; font-size:1.5rem; color:#333; }
+.today-tag { font-size:0.68rem; font-weight:700; padding:3px 10px; border-radius:20px; color:#fff; white-space:nowrap; }
+
+.today-scroll { padding:0 16px 16px; }
+.today-wrap { display:flex; gap:0; }
+.today-axis { width:38px; flex-shrink:0; position:relative; }
+.today-axis-label { position:absolute; right:5px; font-size:0.62rem; font-weight:700; color:#c0a8a0; transform:translateY(-50%); white-space:nowrap; }
+.today-tl { flex:1; position:relative; background:#f5f0ee; border-radius:12px; overflow:hidden; }
+.tl-grid { position:absolute; left:0; right:0; height:1px; background:#e8e0dc; }
+.tl-block {
+  position:absolute; left:4px; right:4px; border-radius:8px; overflow:hidden;
+  cursor:pointer; padding:2px 8px; display:flex; flex-direction:column; justify-content:center;
+  transition:transform 0.1s; min-height:10px;
+}
+.tl-block:active { transform:scale(0.97); }
+.tl-block.is-now { box-shadow:0 0 0 2px #ff5252, 0 3px 10px rgba(255,82,82,0.25); z-index:5; }
+.tl-b-time { font-size:0.55rem; font-weight:800; opacity:0.6; line-height:1.3; }
+.tl-b-name { font-size:0.8rem; font-weight:700; color:#333; line-height:1.3; }
+.now-line { position:absolute; left:0; right:0; height:2px; background:#ff5252; z-index:10; pointer-events:none; }
+.now-line::before { content:''; position:absolute; left:-1px; top:-4px; width:10px; height:10px; border-radius:50%; background:#ff5252; }
+
+/* ══ 週間ビュー ══ */
+#screen-week { overflow-x:auto; overflow-y:auto; background:#fff9f5; }
+.week-outer { display:flex; padding:10px 6px 20px; min-width:520px; }
+.week-axis { width:28px; flex-shrink:0; position:relative; margin-top:50px; }
+.week-axis-label { position:absolute; right:3px; font-size:0.5rem; font-weight:700; color:#c0a8a0; transform:translateY(-50%); }
+.week-cols { display:flex; gap:4px; flex:1; }
+.week-col { flex:1; min-width:0; }
+.week-col-hdr { text-align:center; padding:5px 3px 4px; border-radius:8px 8px 0 0; cursor:pointer; }
+.week-col-hdr.is-today { box-shadow:0 0 0 2px #ff5252; }
+.week-col-day  { font-family:'Fredoka One',cursive; font-size:0.9rem; color:#fff; }
+.week-col-tag  { font-size:0.42rem; color:rgba(255,255,255,0.85); font-weight:700; }
+.week-tl { position:relative; background:#f5f0ee; border-radius:0 0 6px 6px; }
+.week-grid { position:absolute; left:0; right:0; height:1px; background:#e8e0dc; }
+.week-blk { position:absolute; left:2px; right:2px; border-radius:4px; overflow:hidden; cursor:pointer; padding:1px 3px; min-height:6px; }
+.week-blk:active { opacity:.75; }
+.week-blk-name { font-size:0.46rem; font-weight:700; color:#333; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
+.week-now-line { position:absolute; left:0; right:0; height:2px; background:#ff5252; z-index:10; pointer-events:none; }
+
+/* ══ 通知設定バナー ══ */
+.notif-banner {
+  background:linear-gradient(135deg,#fff0f7,#fce4ec); border:2px solid #f8bbd0;
+  border-radius:16px; padding:14px 16px; margin-bottom:14px;
+  display:flex; align-items:center; gap:12px;
+}
+.notif-banner-text { flex:1; font-size:0.8rem; color:#c2185b; font-weight:500; line-height:1.4; }
+.notif-banner-btn { background:#d47fa6; color:#fff; border:none; border-radius:12px; padding:8px 14px; font-size:0.78rem; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif; white-space:nowrap; }
+
+/* ══ リマインダー設定 ══ */
+.reminder-section { margin-top:14px; }
+.reminder-title { font-size:0.7rem; font-weight:700; color:#bbb; letter-spacing:.05em; margin-bottom:8px; }
+.reminder-list { display:flex; flex-direction:column; gap:6px; }
+.reminder-item {
+  background:#fff; border-radius:14px; padding:11px 14px;
+  display:flex; align-items:center; gap:10px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.04);
+}
+.reminder-dot  { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.reminder-info { flex:1; }
+.reminder-name { font-size:0.85rem; font-weight:700; color:#333; }
+.reminder-sub  { font-size:0.66rem; color:#aaa; margin-top:1px; }
+.reminder-toggle { position:relative; width:40px; height:22px; flex-shrink:0; }
+.reminder-toggle input { opacity:0; width:0; height:0; position:absolute; }
+.toggle-slider { position:absolute; inset:0; background:#ddd; border-radius:11px; cursor:pointer; transition:background 0.2s; }
+.toggle-slider::before { content:''; position:absolute; width:16px; height:16px; left:3px; top:3px; background:#fff; border-radius:50%; transition:transform 0.2s; box-shadow:0 1px 4px rgba(0,0,0,0.2); }
+.reminder-toggle input:checked + .toggle-slider { background:#d47fa6; }
+.reminder-toggle input:checked + .toggle-slider::before { transform:translateX(18px); }
+
+/* ══ モーダル ══ */
+.modal-bg { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.4); display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+.modal-bg.show { opacity:1; pointer-events:all; }
+.modal-sheet { background:#fff; border-radius:24px 24px 0 0; width:100%; max-width:480px; padding:20px 22px calc(30px + env(safe-area-inset-bottom)); transform:translateY(100%); transition:transform 0.3s cubic-bezier(.4,0,.2,1); }
+.modal-bg.show .modal-sheet { transform:translateY(0); }
+.modal-handle { width:40px; height:4px; background:#e0d8d5; border-radius:2px; margin:0 auto 16px; }
+.modal-eyebrow { font-size:0.72rem; font-weight:700; color:#bbb; margin-bottom:4px; }
+.modal-time    { font-size:0.82rem; font-weight:700; color:#aaa; margin-bottom:8px; }
+.modal-name    { font-family:'Fredoka One',cursive; font-size:1.6rem; color:#333; line-height:1.2; margin-bottom:14px; }
+.modal-status  { font-size:0.85rem; color:#888; line-height:1.6; }
+.modal-status strong { color:#d47fa6; font-size:1.05rem; font-weight:900; }
+.modal-close   { margin-top:18px; width:100%; padding:13px; background:#f5f0ee; border:none; border-radius:14px; font-size:0.9rem; font-weight:700; color:#888; cursor:pointer; font-family:'Noto Sans JP',sans-serif; }
+
+/* ブロック種別カラー */
+.act-free     { background:#fffde7; border-left:3px solid #fdd835; }
+.act-homework { background:#e8f5e9; border-left:3px solid #66bb6a; }
+.act-lesson   { background:#e3f2fd; border-left:3px solid #42a5f5; }
+.act-juku     { background:#fce4ec; border-left:3px solid #ef5350; }
+.act-meal     { background:#fff3e0; border-left:3px solid #ffa726; }
+.act-bath     { background:#e0f7fa; border-left:3px solid #26c6da; }
+.act-sleep    { background:#ede7f6; border-left:3px solid #7e57c2; }
+.act-move     { background:#f3f3f3; border-left:3px solid #bdbdbd; }
+.act-home     { background:#fafafa; border-left:3px solid #e0e0e0; }
+.act-dance    { background:#fce4ec; border-left:3px solid #f06292; }
+.act-test     { background:#fff8e1; border-left:3px solid #ffca28; }
+.act-custom   { background:#f3f0ff; border-left:3px solid #9d86e8; }
+
+/* ══ 編集ビュー ══ */
+#screen-edit { background:#fff9f5; padding:14px 16px 20px; }
+.edit-day-tabs { display:flex; gap:6px; overflow-x:auto; padding-bottom:8px; -webkit-overflow-scrolling:touch; }
+.edit-day-tab { flex-shrink:0; padding:6px 14px; border-radius:20px; border:2px solid #f0d8e8; background:#fff; font-size:0.78rem; font-weight:700; color:#c0a8a0; cursor:pointer; font-family:'Noto Sans JP',sans-serif; white-space:nowrap; }
+.edit-day-tab.active { background:#d47fa6; border-color:#d47fa6; color:#fff; }
+.edit-block-list { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.edit-block-item { background:#fff; border-radius:14px; padding:12px 14px; display:flex; align-items:center; gap:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+.edit-block-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+.edit-block-info { flex:1; min-width:0; }
+.edit-block-time { font-size:0.7rem; font-weight:700; color:#bbb; }
+.edit-block-name { font-size:0.88rem; font-weight:700; color:#333; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.edit-block-btns { display:flex; gap:6px; flex-shrink:0; }
+.edt-btn { width:30px; height:30px; border-radius:8px; border:none; cursor:pointer; font-size:0.85rem; display:flex; align-items:center; justify-content:center; }
+.edt-btn-edit { background:#f0f4ff; color:#5c7cfa; }
+.edt-btn-del  { background:#fff0f0; color:#e53935; }
+.add-block-fab { width:100%; margin-top:10px; padding:13px; background:linear-gradient(135deg,#d47fa6,#e85e9a); color:#fff; border:none; border-radius:16px; font-size:0.92rem; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif; }
+.edit-modal-bg { position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.5); display:flex; align-items:flex-end; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+.edit-modal-bg.show { opacity:1; pointer-events:all; }
+.edit-modal-sheet { background:#fff; border-radius:24px 24px 0 0; width:100%; max-width:480px; padding:20px 20px calc(30px + env(safe-area-inset-bottom)); transform:translateY(100%); transition:transform 0.3s cubic-bezier(.4,0,.2,1); }
+.edit-modal-bg.show .edit-modal-sheet { transform:translateY(0); }
+.edit-modal-title { font-family:'Fredoka One',cursive; font-size:1.2rem; color:#333; margin-bottom:16px; text-align:center; }
+.edit-field { margin-bottom:14px; }
+.edit-label { font-size:0.72rem; font-weight:700; color:#aaa; margin-bottom:5px; display:block; }
+.edit-input { width:100%; padding:11px 14px; border:2px solid #f0e0d8; border-radius:12px; font-size:0.95rem; font-family:'Noto Sans JP',sans-serif; color:#333; outline:none; background:#fff; }
+.edit-input:focus { border-color:#d47fa6; }
+.edit-type-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+.edit-type-btn { padding:8px 6px; border:2px solid transparent; border-radius:10px; font-size:0.7rem; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif; text-align:center; transition:all 0.15s; }
+.edit-type-btn.selected { border-color:#555; transform:scale(1.04); }
+.edit-save-btn { width:100%; padding:14px; background:#d47fa6; color:#fff; border:none; border-radius:16px; font-size:1rem; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif; margin-top:6px; }
+.edit-cancel-btn { width:100%; padding:11px; background:#f5f0ee; color:#888; border:none; border-radius:16px; font-size:0.9rem; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <div class="app-title">📅 みずきちゃんのスケジュール</div>
+    <div class="app-date" id="headerDate"></div>
+  </div>
+  <div class="header-right">
+    <div class="now-badge" id="headerTime">--:--</div>
+    <button class="notif-btn" id="notifBtn" onclick="requestNotifPermission()" title="通知設定">🔔</button>
+  </div>
+</div>
+
+<!-- 編集ビュー -->
+<div class="screen" id="screen-edit"></div>
+
+<!-- いまビュー -->
+<div class="screen active" id="screen-now"></div>
+<!-- 今日ビュー -->
+<div class="screen" id="screen-today"></div>
+<!-- 週間ビュー -->
+<div class="screen" id="screen-week"></div>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('now',this)">
+    <span class="tab-icon">⏰</span><span class="tab-label">いま</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('today',this)">
+    <span class="tab-icon">📋</span><span class="tab-label">今日</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('week',this)">
+    <span class="tab-icon">📅</span><span class="tab-label">週間</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('edit',this)">
+    <span class="tab-icon">✏️</span><span class="tab-label">編集</span>
+  </button>
+</div>
+
+<!-- ブロック詳細モーダル -->
+<div class="modal-bg" id="modal" onclick="closeModal(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-eyebrow" id="mEye"></div>
+    <div class="modal-time"    id="mTime"></div>
+    <div class="modal-name"    id="mName"></div>
+    <div class="modal-status"  id="mStatus"></div>
+    <button class="modal-close" onclick="closeModal()">閉じる</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════
+// データ
+// ══════════════════════════════
+const THEMES = [
+  {color:'#f47c7c',grad:'linear-gradient(135deg,#f47c7c,#e85e9a)'},
+  {color:'#5ec4b1',grad:'linear-gradient(135deg,#5ec4b1,#3dadd6)'},
+  {color:'#9d86e8',grad:'linear-gradient(135deg,#9d86e8,#c084d4)'},
+  {color:'#f5a623',grad:'linear-gradient(135deg,#f5a623,#f0784a)'},
+  {color:'#6bcb77',grad:'linear-gradient(135deg,#6bcb77,#4fa8a0)'},
+  {color:'#4db6e8',grad:'linear-gradient(135deg,#4db6e8,#6a8dd6)'},
+];
+const BC = {
+  'act-free':    {bg:'#fffde7',c:'#fdd835'},
+  'act-homework':{bg:'#e8f5e9',c:'#66bb6a'},
+  'act-lesson':  {bg:'#e3f2fd',c:'#42a5f5'},
+  'act-juku':    {bg:'#fce4ec',c:'#ef5350'},
+  'act-meal':    {bg:'#fff3e0',c:'#ffa726'},
+  'act-bath':    {bg:'#e0f7fa',c:'#26c6da'},
+  'act-sleep':   {bg:'#ede7f6',c:'#7e57c2'},
+  'act-move':    {bg:'#f3f3f3',c:'#bdbdbd'},
+  'act-home':    {bg:'#fafafa',c:'#e0e0e0'},
+  'act-dance':   {bg:'#fce4ec',c:'#f06292'},
+  'act-test':    {bg:'#fff8e1',c:'#ffca28'},
+  'act-custom':  {bg:'#f3f0ff',c:'#9d86e8'},
+};
+// 2026年3月3日(火)〜3月8日(日)
+const WEEK_START = new Date(2026,2,3);
+const DAYS = [
+  {label:'3/3 火',tag:'🏫 塾の日',ti:0,blocks:[
+    {t:'06:30',n:'☀️ 起床・朝食・支度（50分）',c:'act-home'},
+    {t:'07:20',n:'🎒 家を出る',c:'act-move'},
+    {t:'08:00',n:'🏫 学校（390分）',c:'act-lesson'},
+    {t:'14:20',n:'🏠 帰宅',c:'act-home'},
+    {t:'14:30',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'15:30',n:'📚 宿題①（60分）',c:'act-homework'},
+    {t:'16:30',n:'📚 宿題②（20分）',c:'act-homework'},
+    {t:'16:50',n:'🚶 移動（10分）',c:'act-move'},
+    {t:'17:00',n:'✏️ 早稲田アカデミー（160分）',c:'act-juku'},
+    {t:'19:40',n:'🏁 授業終了・移動（20分）',c:'act-move'},
+    {t:'20:00',n:'🍚 夕食（60分・入浴なし）',c:'act-meal'},
+    {t:'21:00',n:'💤 就寝',c:'act-sleep'},
+  ]},
+  {label:'3/4 水',tag:'🗣 英会話の日',ti:1,blocks:[
+    {t:'06:30',n:'☀️ 起床・朝食・支度（50分）',c:'act-home'},
+    {t:'07:20',n:'🎒 家を出る',c:'act-move'},
+    {t:'08:00',n:'🏫 学校（390分）',c:'act-lesson'},
+    {t:'14:20',n:'🏠 帰宅',c:'act-home'},
+    {t:'14:30',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'15:30',n:'📚 宿題①（40分）',c:'act-homework'},
+    {t:'16:10',n:'🚶 移動（20分）',c:'act-move'},
+    {t:'16:30',n:'🌍 英会話（60分）',c:'act-lesson'},
+    {t:'17:30',n:'🚶 移動・帰宅（20分）',c:'act-move'},
+    {t:'18:00',n:'🍚 夕食（60分）',c:'act-meal'},
+    {t:'19:00',n:'🛁 入浴（60分）',c:'act-bath'},
+    {t:'20:00',n:'📚 宿題②（50分）',c:'act-homework'},
+    {t:'21:00',n:'💤 就寝',c:'act-sleep'},
+  ]},
+  {label:'3/5 木',tag:'🏫 塾の日',ti:2,blocks:[
+    {t:'06:30',n:'☀️ 起床・朝食・支度（50分）',c:'act-home'},
+    {t:'07:20',n:'🎒 家を出る',c:'act-move'},
+    {t:'08:00',n:'🏫 学校（390分）',c:'act-lesson'},
+    {t:'14:20',n:'🏠 帰宅',c:'act-home'},
+    {t:'14:30',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'15:30',n:'📚 宿題①（60分）',c:'act-homework'},
+    {t:'16:30',n:'📚 宿題②（20分）',c:'act-homework'},
+    {t:'16:50',n:'🚶 移動（10分）',c:'act-move'},
+    {t:'17:00',n:'✏️ 早稲田アカデミー（160分）',c:'act-juku'},
+    {t:'19:40',n:'🏁 授業終了・移動（20分）',c:'act-move'},
+    {t:'20:00',n:'🍚 夕食（60分・入浴なし）',c:'act-meal'},
+    {t:'21:00',n:'💤 就寝',c:'act-sleep'},
+  ]},
+  {label:'3/6 金',tag:'📖 英検レッスンの日',ti:3,blocks:[
+    {t:'06:30',n:'☀️ 起床・朝食・支度（50分）',c:'act-home'},
+    {t:'07:20',n:'🎒 家を出る',c:'act-move'},
+    {t:'08:00',n:'🏫 学校（390分）',c:'act-lesson'},
+    {t:'14:20',n:'🏠 帰宅',c:'act-home'},
+    {t:'14:30',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'15:30',n:'📚 宿題①（30分）',c:'act-homework'},
+    {t:'16:00',n:'👴 じいじと英検レッスン（60分）',c:'act-lesson'},
+    {t:'17:00',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'18:00',n:'🍚 夕食（60分）',c:'act-meal'},
+    {t:'19:00',n:'📚 宿題②（60分）',c:'act-homework'},
+    {t:'20:00',n:'🛁 入浴（60分）',c:'act-bath'},
+    {t:'21:00',n:'💤 就寝',c:'act-sleep'},
+  ]},
+  {label:'3/7 土',tag:'📝 カリテの日',ti:4,blocks:[
+    {t:'07:30',n:'☀️ 起床・朝食',c:'act-home'},
+    {t:'09:00',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'10:00',n:'📚 宿題・テスト前見直し（90分）',c:'act-homework'},
+    {t:'11:30',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'12:30',n:'🍱 昼食（60分）',c:'act-meal'},
+    {t:'13:30',n:'🎯 早稲アカ カリテ第2回（150分）',c:'act-test'},
+    {t:'16:00',n:'🏁 テスト終了・帰宅（60分）',c:'act-move'},
+    {t:'17:00',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'18:00',n:'🍚 夕食（60分）',c:'act-meal'},
+    {t:'19:00',n:'🛁 入浴（60分）',c:'act-bath'},
+    {t:'20:00',n:'📝 テストの解き直し（60分）',c:'act-homework'},
+    {t:'21:00',n:'💤 就寝',c:'act-sleep'},
+  ]},
+  {label:'3/8 日',tag:'💃 ダンスの日',ti:5,blocks:[
+    {t:'07:30',n:'☀️ 起床・朝食',c:'act-home'},
+    {t:'09:00',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'10:30',n:'👀 みらちゃんのダンス観覧（60分）',c:'act-dance'},
+    {t:'11:30',n:'⭐️ 自由時間（30分）',c:'act-free'},
+    {t:'12:00',n:'🍱 昼食（60分）',c:'act-meal'},
+    {t:'13:00',n:'⭐️ 自由時間（60分）',c:'act-free'},
+    {t:'14:00',n:'📚 宿題・家庭学習（90分）',c:'act-homework'},
+    {t:'15:30',n:'⭐️ 自由時間（150分）',c:'act-free'},
+    {t:'18:00',n:'🍚 夕食（60分）',c:'act-meal'},
+    {t:'19:00',n:'🛁 入浴（60分）',c:'act-bath'},
+    {t:'20:00',n:'😌 のんびりタイム（60分）',c:'act-free'},
+    {t:'21:00',n:'💤 就寝',c:'act-sleep'},
+  ]},
+];
+
+// ══════════════════════════════
+// ユーティリティ
+// ══════════════════════════════
+const pm = s => { const [h,m]=s.split(':').map(Number); return h*60+m; };
+const fmt = m => String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+const nowMin = () => { const n=new Date(); return n.getHours()*60+n.getMinutes(); };
+function todayIdx() {
+  const n=new Date();
+  const d=Math.floor((new Date(n.getFullYear(),n.getMonth(),n.getDate())-WEEK_START)/86400000);
+  return (d>=0&&d<6)?d:-1;
+}
+function tRange() {
+  let mn=Infinity,mx=-Infinity;
+  DAYS.forEach(d=>d.blocks.forEach((b,i)=>{
+    const t=pm(b.t); if(t<mn)mn=t;
+    const e=d.blocks[i+1]?pm(d.blocks[i+1].t):t+30; if(e>mx)mx=e;
+  }));
+  return {mn:Math.floor(mn/60)*60, mx:Math.ceil(mx/60)*60};
+}
+function curBlock(di,now) {
+  const bs=DAYS[di].blocks;
+  for(let i=0;i<bs.length;i++){
+    const s=pm(bs[i].t), e=bs[i+1]?pm(bs[i+1].t):s+30;
+    if(now>=s&&now<e) return {b:bs[i],s,e,i};
+  }
+  return null;
+}
+
+// ══════════════════════════════
+// タブ
+// ══════════════════════════════
+let activeTab='now';
+let todayViewDi=Math.max(0,todayIdx());
+
+function switchTab(name,btn){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  btn.classList.add('active');
+  activeTab=name;
+  if(name==='now')   renderNow();
+  if(name==='today') renderToday();
+  if(name==='week')  renderWeek();
+  if(name==='edit')  renderEdit();
+}
+
+// ══════════════════════════════
+// 時計
+// ══════════════════════════════
+function tick(){
+  const n=new Date();
+  document.getElementById('headerTime').textContent=
+    String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+  const WD=['日','月','火','水','木','金','土'];
+  document.getElementById('headerDate').textContent=
+    (n.getMonth()+1)+'月'+n.getDate()+'日（'+WD[n.getDay()]+'）';
+}
+
+// ══════════════════════════════
+// いまビュー
+// ══════════════════════════════
+function renderNow(){
+  const el=document.getElementById('screen-now');
+  const di=todayIdx(), now=nowMin();
+  let html='';
+
+  // 通知バナー
+  if(Notification.permission==='default'){
+    html+=`<div class="notif-banner">
+      <div>🔔</div>
+      <div class="notif-banner-text">予定の通知を受け取りますか？<br>始まる5分前にお知らせします</div>
+      <button class="notif-banner-btn" onclick="requestNotifPermission()">許可する</button>
+    </div>`;
+  }
+
+  if(di<0){
+    html+='<div class="no-schedule">📭 今週のスケジュールは<br>3/3〜3/8だよ！</div>';
+    el.innerHTML=html; return;
+  }
+
+  const day=DAYS[di];
+  html+=`<div class="now-day-label">今日は <span>${day.label} ${day.tag}</span></div>`;
+
+  const cur=curBlock(di,now);
+  if(cur){
+    const dur=cur.e-cur.s, elapsed=now-cur.s;
+    const pct=Math.min(100,Math.round(elapsed/dur*100));
+    const bc=BC[cur.b.c]||BC['act-custom'];
+    html+=`<div class="now-card">
+      <div class="now-card-top" style="background:${bc.bg}">
+        <div class="now-card-eyebrow">⏰ いまやること</div>
+        <div class="now-card-time">${cur.b.t} 〜 ${fmt(cur.e)}</div>
+        <div class="now-card-name">${cur.b.n}</div>
+      </div>
+      <div class="progress-wrap"><div class="progress-bar" style="width:${pct}%;background:${bc.c}"></div></div>
+      <div class="now-card-foot">あと <strong>${cur.e-now}分</strong> で終わるよ！（${pct}%完了）</div>
+    </div>`;
+  } else {
+    html+=`<div class="now-card"><div class="now-card-top">
+      <div class="now-card-eyebrow">💤 スケジュール時間外</div>
+      <div class="now-card-name" style="font-size:1.5rem">ゆっくり休もう！</div>
+    </div></div>`;
+  }
+
+  const upcoming=day.blocks.filter(b=>pm(b.t)>now).slice(0,5);
+  if(upcoming.length){
+    html+=`<div class="next-section-label">📌 この後の予定</div><div class="next-list">`;
+    upcoming.forEach(b=>{
+      const bc=BC[b.c]||BC['act-custom'];
+      html+=`<div class="next-item">
+        <div class="next-dot" style="background:${bc.c}"></div>
+        <div class="next-time">${b.t}</div>
+        <div class="next-name">${b.n}</div>
+      </div>`;
+    });
+    html+='</div>';
+  }
+
+  // リマインダー設定
+  if(Notification.permission==='granted'){
+    html+=`<div class="reminder-section">
+      <div class="reminder-title">🔔 リマインダー設定</div>
+      <div class="reminder-list" id="reminderList"></div>
+    </div>`;
+  }
+
+  el.innerHTML=html;
+
+  if(Notification.permission==='granted'){
+    buildReminderList(di);
+  }
+}
+
+// ══════════════════════════════
+// リマインダーリスト
+// ══════════════════════════════
+const REMIND_KEY='remind_prefs';
+function getPrefs(){ try{ return JSON.parse(localStorage.getItem(REMIND_KEY)||'{}'); }catch{return{};} }
+function setPrefs(p){ localStorage.setItem(REMIND_KEY,JSON.stringify(p)); }
+
+function buildReminderList(di){
+  const el=document.getElementById('reminderList'); if(!el) return;
+  const now=nowMin(), prefs=getPrefs();
+  const upcoming=DAYS[di].blocks.filter(b=>pm(b.t)>now).slice(0,6);
+  el.innerHTML=upcoming.map((b,i)=>{
+    const bc=BC[b.c]||BC['act-custom'];
+    const key=di+'_'+b.t;
+    const on=prefs[key]!==false; // デフォルトON
+    return `<div class="reminder-item">
+      <div class="reminder-dot" style="background:${bc.c}"></div>
+      <div class="reminder-info">
+        <div class="reminder-name">${b.n}</div>
+        <div class="reminder-sub">${b.t} の5分前に通知</div>
+      </div>
+      <label class="reminder-toggle">
+        <input type="checkbox" ${on?'checked':''} onchange="toggleReminder('${key}',this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`;
+  }).join('');
+}
+
+function toggleReminder(key,on){
+  const p=getPrefs(); p[key]=on; setPrefs(p);
+}
+
+// ══════════════════════════════
+// 通知
+// ══════════════════════════════
+async function requestNotifPermission(){
+  if(!('Notification' in window)){ alert('このブラウザは通知に対応していません'); return; }
+  const perm=await Notification.requestPermission();
+  if(perm==='granted'){
+    document.getElementById('notifBtn').textContent='🔔';
+    scheduleReminders();
+    renderNow();
+  }
+}
+
+function scheduleReminders(){
+  if(Notification.permission!=='granted') return;
+  const di=todayIdx(); if(di<0) return;
+  const prefs=getPrefs(), now=nowMin();
+  DAYS[di].blocks.forEach(b=>{
+    const key=di+'_'+b.t;
+    if(prefs[key]===false) return;
+    const remindAt=pm(b.t)-5; // 5分前
+    if(remindAt<=now) return;
+    const msLeft=(remindAt-now)*60*1000;
+    setTimeout(()=>{
+      if(Notification.permission==='granted'){
+        new Notification('📅 もうすぐ始まるよ！',{
+          body:'5分後：'+b.n,
+          icon:'./icon-192.svg',
+          tag:'remind_'+b.t,
+        });
+      }
+    }, msLeft);
+  });
+}
+
+// ══════════════════════════════
+// 今日ビュー
+// ══════════════════════════════
+const TPM=2.2;
+function renderToday(){
+  const el=document.getElementById('screen-today');
+  const di=todayViewDi, day=DAYS[di];
+  const th=THEMES[day.ti], {mn,mx}=tRange();
+  const H=(mx-mn)*TPM, now=nowMin(), isTd=(di===todayIdx());
+
+  let html=`<div class="today-header">
+    <div class="day-nav">
+      <button class="nav-btn" onclick="prevDay()">‹</button>
+      <div class="today-label">${day.label}</div>
+      <button class="nav-btn" onclick="nextDay()">›</button>
+    </div>
+    <div class="today-tag" style="background:${th.color}">${day.tag}</div>
+  </div>
+  <div class="today-scroll">
+    <div class="today-wrap">
+      <div class="today-axis" style="height:${H}px" id="tAxis"></div>
+      <div class="today-tl" style="height:${H}px">`;
+
+  for(let t=mn;t<=mx;t+=60)
+    html+=`<div class="tl-grid" style="top:${(t-mn)*TPM}px"></div>`;
+
+  day.blocks.forEach((b,i)=>{
+    const s=pm(b.t), e=day.blocks[i+1]?pm(day.blocks[i+1].t):s+30;
+    const dur=Math.max(e-s,8), top=(s-mn)*TPM, h=dur*TPM;
+    const isNow=isTd&&now>=s&&now<e;
+    html+=`<div class="tl-block ${b.c}${isNow?' is-now':''}" style="top:${top}px;height:${h}px" onclick="openModal(${di},${i})">
+      ${h>22?`<div class="tl-b-time">${b.t}</div>`:''}
+      <div class="tl-b-name">${b.n}</div>
+    </div>`;
+  });
+
+  if(isTd){
+    const nt=(now-mn)*TPM;
+    if(nt>=0&&nt<=H) html+=`<div class="now-line" style="top:${nt}px"></div>`;
+  }
+  html+=`</div></div></div>`;
+
+  el.innerHTML=html;
+
+  const ax=document.getElementById('tAxis');
+  ax.style.height=H+'px';
+  for(let t=mn;t<=mx;t+=60){
+    const lb=document.createElement('div');
+    lb.className='today-axis-label';
+    lb.style.top=(t-mn)*TPM+'px';
+    lb.textContent=Math.floor(t/60)+':00';
+    ax.appendChild(lb);
+  }
+  if(isTd) setTimeout(()=>{ el.scrollTop=Math.max(0,(now-mn)*TPM-120); },50);
+}
+function prevDay(){ todayViewDi=(todayViewDi+5)%6; renderToday(); }
+function nextDay(){ todayViewDi=(todayViewDi+1)%6; renderToday(); }
+
+// ══════════════════════════════
+// 週間ビュー
+// ══════════════════════════════
+const WPM=1.1;
+function renderWeek(){
+  const el=document.getElementById('screen-week');
+  const {mn,mx}=tRange(), H=(mx-mn)*WPM, di=todayIdx();
+
+  let ax=`<div class="week-axis" style="height:${H}px;margin-top:50px">`;
+  for(let t=mn;t<=mx;t+=60)
+    ax+=`<div class="week-axis-label" style="top:${(t-mn)*WPM}px">${Math.floor(t/60)}</div>`;
+  ax+='</div>';
+
+  let cols='<div class="week-cols">';
+  DAYS.forEach((day,idx)=>{
+    const th=THEMES[day.ti], isTd=(idx===di);
+    cols+=`<div class="week-col">
+      <div class="week-col-hdr${isTd?' is-today':''}" style="background:${th.grad}" onclick="jumpDay(${idx})">
+        <div class="week-col-day">${day.label}</div>
+        <div class="week-col-tag">${day.tag}</div>
+      </div>
+      <div class="week-tl" style="height:${H}px">`;
+    for(let t=mn;t<=mx;t+=60)
+      cols+=`<div class="week-grid" style="top:${(t-mn)*WPM}px"></div>`;
+    day.blocks.forEach((b,i)=>{
+      const s=pm(b.t), e=day.blocks[i+1]?pm(day.blocks[i+1].t):s+30;
+      const dur=Math.max(e-s,6), top=(s-mn)*WPM, h=dur*WPM;
+      cols+=`<div class="week-blk ${b.c}" style="top:${top}px;height:${h}px" onclick="jumpDay(${idx})">
+        ${h>14?`<div class="week-blk-name">${b.n}</div>`:''}
+      </div>`;
+    });
+    if(isTd){ const nt=(nowMin()-mn)*WPM; if(nt>=0&&nt<=H) cols+=`<div class="week-now-line" style="top:${nt}px"></div>`; }
+    cols+='</div></div>';
+  });
+  cols+='</div>';
+
+  el.innerHTML=`<div class="week-outer">${ax}${cols}</div>`;
+}
+function jumpDay(idx){
+  todayViewDi=idx;
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('screen-today').classList.add('active');
+  document.querySelectorAll('.tab-btn')[1].classList.add('active');
+  activeTab='today'; renderToday();
+}
+
+// ══════════════════════════════
+// モーダル
+// ══════════════════════════════
+function openModal(di,bi){
+  const b=DAYS[di].blocks[bi];
+  const s=pm(b.t), e=DAYS[di].blocks[bi+1]?pm(DAYS[di].blocks[bi+1].t):s+30;
+  const dur=e-s, now=nowMin(), isTd=(di===todayIdx());
+  document.getElementById('mEye').textContent='📅 '+DAYS[di].label+' '+DAYS[di].tag;
+  document.getElementById('mTime').textContent=b.t+' 〜 '+fmt(e)+'（'+dur+'分）';
+  document.getElementById('mName').textContent=b.n;
+  let st='';
+  if(isTd&&now>=s&&now<e){
+    const pct=Math.round((now-s)/dur*100);
+    st=`⏱️ いまここ！あと <strong>${e-now}分</strong>（${pct}%完了）`;
+  } else if(isTd&&now<s){
+    st=`📌 あと <strong>${s-now}分</strong> で始まるよ`;
+  } else {
+    st=`⏰ ${dur}分間の予定`;
+  }
+  document.getElementById('mStatus').innerHTML=st;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal(e){
+  if(!e||e.target===document.getElementById('modal'))
+    document.getElementById('modal').classList.remove('show');
+}
+
+// ══════════════════════════════
+// データ保存・読み込み（localStorage）
+// ══════════════════════════════
+const DATA_KEY = 'schedule_days_v1';
+function saveData() { localStorage.setItem(DATA_KEY, JSON.stringify(DAYS)); }
+function loadData() {
+  try {
+    const saved = localStorage.getItem(DATA_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      parsed.forEach((d, i) => { if (DAYS[i]) DAYS[i].blocks = d.blocks; });
+    }
+  } catch(e) {}
+}
+
+// ══════════════════════════════
+// 編集ビュー
+// ══════════════════════════════
+const BLOCK_TYPES_LIST = [
+  {cls:'act-home',    label:'起床・帰宅'},
+  {cls:'act-move',    label:'移動'},
+  {cls:'act-lesson',  label:'学校・習い事'},
+  {cls:'act-free',    label:'自由時間'},
+  {cls:'act-homework',label:'宿題・学習'},
+  {cls:'act-juku',    label:'塾'},
+  {cls:'act-test',    label:'テスト'},
+  {cls:'act-meal',    label:'食事'},
+  {cls:'act-bath',    label:'入浴'},
+  {cls:'act-sleep',   label:'就寝'},
+  {cls:'act-dance',   label:'ダンス'},
+  {cls:'act-custom',  label:'その他'},
+];
+
+let editDayIdx = 0;
+let editBlockIdx = null;
+
+function renderEdit() {
+  const el = document.getElementById('screen-edit');
+  let tabsHtml = '<div class="edit-day-tabs">';
+  DAYS.forEach((d, i) => {
+    tabsHtml += `<button class="edit-day-tab${i===editDayIdx?' active':''}" onclick="switchEditDay(${i})">${d.label}</button>`;
+  });
+  tabsHtml += '</div>';
+
+  const day = DAYS[editDayIdx];
+  let listHtml = '<div class="edit-block-list">';
+  day.blocks.forEach((b, i) => {
+    const bc = BC[b.c] || BC['act-custom'];
+    listHtml += `<div class="edit-block-item">
+      <div class="edit-block-dot" style="background:${bc.c}"></div>
+      <div class="edit-block-info">
+        <div class="edit-block-time">${b.t}</div>
+        <div class="edit-block-name">${b.n}</div>
+      </div>
+      <div class="edit-block-btns">
+        <button class="edt-btn edt-btn-edit" onclick="openEditModal(${i})">✏️</button>
+        <button class="edt-btn edt-btn-del"  onclick="deleteBlock(${i})">🗑️</button>
+      </div>
+    </div>`;
+  });
+  listHtml += '</div>';
+
+  el.innerHTML = tabsHtml + listHtml +
+    `<button class="add-block-fab" onclick="openEditModal(null)">＋ 予定を追加</button>`;
+}
+
+function switchEditDay(i) { editDayIdx = i; renderEdit(); }
+
+function openEditModal(bi) {
+  editBlockIdx = bi;
+  const day = DAYS[editDayIdx];
+  const isNew = (bi === null);
+  const b = isNew ? null : day.blocks[bi];
+
+  document.getElementById('editModalTitle').textContent = isNew ? '➕ 予定を追加' : '✏️ 予定を編集';
+  document.getElementById('editTime').value = isNew ? '09:00' : b.t;
+  document.getElementById('editName').value = isNew ? '' : b.n;
+
+  const selectedCls = isNew ? 'act-custom' : b.c;
+  const grid = document.getElementById('editTypeGrid');
+  grid.innerHTML = BLOCK_TYPES_LIST.map(t => {
+    const bc = BC[t.cls] || BC['act-custom'];
+    const sel = t.cls === selectedCls;
+    return `<button class="edit-type-btn${sel?' selected':''}"
+      style="background:${bc.bg};border-color:${sel?bc.c:'transparent'}"
+      data-cls="${t.cls}"
+      onclick="selectType(this)">${t.label}</button>`;
+  }).join('');
+
+  document.getElementById('editModal').classList.add('show');
+}
+
+function selectType(btn) {
+  document.querySelectorAll('.edit-type-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.style.borderColor = 'transparent';
+  });
+  btn.classList.add('selected');
+  const bc = BC[btn.dataset.cls] || BC['act-custom'];
+  btn.style.borderColor = bc.c;
+}
+
+function saveBlock() {
+  const time = document.getElementById('editTime').value;
+  const name = document.getElementById('editName').value.trim();
+  if (!name) { alert('内容を入力してください'); return; }
+  const selectedBtn = document.querySelector('.edit-type-btn.selected');
+  const finalCls = selectedBtn ? selectedBtn.dataset.cls : 'act-custom';
+
+  const day = DAYS[editDayIdx];
+  if (editBlockIdx === null) {
+    day.blocks.push({t: time, n: name, c: finalCls});
+  } else {
+    day.blocks[editBlockIdx] = {t: time, n: name, c: finalCls};
+  }
+  day.blocks.sort((a, b) => pm(a.t) - pm(b.t));
+
+  saveData();
+  closeEditModal();
+  renderEdit();
+}
+
+function deleteBlock(bi) {
+  if (!confirm('削除しますか？')) return;
+  DAYS[editDayIdx].blocks.splice(bi, 1);
+  saveData();
+  renderEdit();
+}
+
+function closeEditModal() {
+  document.getElementById('editModal').classList.remove('show');
+}
+
+// ══════════════════════════════
+// 起動
+// ══════════════════════════════
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+
+loadData();
+tick();
+renderNow();
+scheduleReminders();
+
+setInterval(()=>{
+  tick();
+  if(activeTab==='now')   renderNow();
+  if(activeTab==='today') renderToday();
+  if(activeTab==='week')  renderWeek();
+  scheduleReminders();
+}, 60000);
+</script>
+
+<!-- ブロック編集モーダル -->
+<div class="edit-modal-bg" id="editModal">
+  <div class="edit-modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="edit-modal-title" id="editModalTitle">予定を編集</div>
+    <div class="edit-field">
+      <label class="edit-label">時刻</label>
+      <input class="edit-input" type="time" id="editTime">
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">内容</label>
+      <input class="edit-input" type="text" id="editName" placeholder="例：📚 宿題（30分）">
+    </div>
+    <div class="edit-field">
+      <label class="edit-label">種類</label>
+      <div class="edit-type-grid" id="editTypeGrid"></div>
+    </div>
+    <button class="edit-save-btn" onclick="saveBlock()">💾 保存する</button>
+    <button class="edit-cancel-btn" onclick="closeEditModal()">キャンセル</button>
+  </div>
+</div>
+</body>
+</html>
