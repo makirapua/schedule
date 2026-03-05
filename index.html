@@ -162,7 +162,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#fff9f5;color:#333;overscr
   cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:10px;}
 
 @media print {
-  .hd, .tb-bar, .edit-day-bar, .add-fab, .imp-fab, .print-fab, .edit-btns { display:none !important; }
+  .hd, .tb-bar, .edit-day-bar, .add-fab, .imp-fab, .print-fab, .print-btns, .edit-btns { display:none !important; }
   .screen { position:static !important; overflow:visible !important; display:block !important; }
   body { background:#fff; }
   #print-area { display:block !important; }
@@ -172,12 +172,12 @@ body{font-family:'Noto Sans JP',sans-serif;background:#fff9f5;color:#333;overscr
   .print-day-tag { font-size:7pt; color:#aaa; margin-bottom:6px; }
   .print-block { font-size:8pt; margin-bottom:3px; padding:3px 5px; border-radius:4px; }
   .print-block-time { font-weight:700; color:#888; margin-right:4px; }
-  @page { size:A3 landscape; margin:10mm; }
 }
 #print-area { display:none; }
-.print-fab { width:100%; padding:13px; background:linear-gradient(135deg,#9d86e8,#7c5cbf);
-  color:#fff; border:none; border-radius:16px; font-size:.92rem; font-weight:700;
-  cursor:pointer; font-family:'Noto Sans JP',sans-serif; margin-top:8px; }
+.print-btns { display:flex; gap:8px; padding:12px 12px 0; }
+.print-fab { flex:1; padding:13px; background:linear-gradient(135deg,#9d86e8,#7c5cbf);
+  color:#fff; border:none; border-radius:16px; font-size:.85rem; font-weight:700;
+  cursor:pointer; font-family:'Noto Sans JP',sans-serif; }
 </style>
 </head>
 <body>
@@ -485,7 +485,7 @@ function renderWeek(){
     h+='</div>';
   });
   h+='</div>';
-  h+='<div style="padding:12px 12px 0;"><button class="print-fab" onclick="doPrint()">🖨️ A3で印刷する</button></div>';
+  h+=`<div style="padding:0 12px"><button class="print-fab" onclick="doPrint()">🖨️ 印刷する</button></div>`;
   el.innerHTML=h;
 }
 function jumpDay(i){todayDi=i;goTab('today',document.querySelectorAll('.tb')[1]);}
