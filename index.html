@@ -34,7 +34,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#fff9f5;color:#333;overscr
 .tb-icon{font-size:1.3rem;}
 .tb-label{font-size:.58rem;font-weight:700;margin-top:2px;}
 .screen{position:fixed;left:0;right:0;
-  top:max(calc(env(safe-area-inset-top)+56px),66px);
+  top:calc(env(safe-area-inset-top) + 56px);
   bottom:calc(56px + env(safe-area-inset-bottom));
   overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;display:none;}
 .screen.active{display:block;}
@@ -198,7 +198,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#fff9f5;color:#333;overscr
 <div class="screen" id="sc-week"></div>
 <div class="screen" id="sc-edit"></div>
 
-<div id="print-area"></div>
+<div id="print-area" style="display:none;position:absolute;"></div>
 <div class="tb-bar">
   <button class="tb active" onclick="goTab('now',this)"><span class="tb-icon">⏰</span><span class="tb-label">いま</span></button>
   <button class="tb" onclick="goTab('today',this)"><span class="tb-icon">📋</span><span class="tb-label">今日</span></button>
@@ -481,7 +481,7 @@ function renderWeek(){
   DAYS.forEach((day,i)=>{
     h+=`<div class="week-card${i===di?' today':''}" onclick="jumpDay(${i})">
       <div class="wc-date">${day.label}</div><div class="wc-tag">${day.tag}</div>`;
-    day.blocks.slice(0,4).forEach(b=>{h+=`<div class="wc-b">${b.t} ${b.n}</div>`;});
+    day.blocks.forEach(b=>{h+=`<div class="wc-b">${b.t} ${b.n}</div>`;});
     h+='</div>';
   });
   h+='</div>';
