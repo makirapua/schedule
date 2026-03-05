@@ -162,11 +162,12 @@ body{font-family:'Noto Sans JP',sans-serif;background:#fff9f5;color:#333;overscr
   cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:10px;}
 
 @media print {
-  * { visibility:hidden; }
-  #print-area, #print-area * { visibility:visible; }
+  html, body { margin:0; padding:0; }
+  body > *:not(#print-area) { display:none !important; }
   #print-area {
-    position:fixed; top:0; left:0; width:100%; height:100%;
     display:block !important;
+    position:absolute; top:0; left:0;
+    width:100%; height:auto;
   }
   @page { size:A4 landscape; margin:8mm; }
 }
@@ -175,8 +176,8 @@ body{font-family:'Noto Sans JP',sans-serif;background:#fff9f5;color:#333;overscr
   color:#fff; border:none; border-radius:16px; font-size:.92rem; font-weight:700;
   cursor:pointer; font-family:'Noto Sans JP',sans-serif; margin-top:8px; }
 .print-week { display:grid; grid-template-columns:repeat(6,1fr); gap:5px;
-  width:100%; height:100%; font-family:'Noto Sans JP',sans-serif; }
-.print-day { border:1px solid #f0d0e0; border-radius:6px; padding:6px; overflow:hidden; }
+  width:100%; font-family:'Noto Sans JP',sans-serif; }
+.print-day { border:1px solid #f0d0e0; border-radius:6px; padding:6px; break-inside:avoid; }
 .print-day-title { font-weight:700; font-size:9pt; color:#d47fa6; margin-bottom:3px;
   border-bottom:1px solid #f0d0e0; padding-bottom:3px; }
 .print-day-tag { font-size:6.5pt; color:#aaa; margin-bottom:4px; }
