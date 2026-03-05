@@ -162,22 +162,26 @@ body{font-family:'Noto Sans JP',sans-serif;background:#fff9f5;color:#333;overscr
   cursor:pointer;font-family:'Noto Sans JP',sans-serif;margin-top:10px;}
 
 @media print {
-  .hd, .tb-bar, .edit-day-bar, .add-fab, .imp-fab, .print-fab, .print-btns, .edit-btns { display:none !important; }
-  .screen { position:static !important; overflow:visible !important; display:block !important; }
-  body { background:#fff; }
-  #print-area { display:block !important; }
-  .print-week { display:grid; grid-template-columns:repeat(6,1fr); gap:6px; padding:10px; }
-  .print-day { border:1px solid #f0d0e0; border-radius:8px; padding:8px; break-inside:avoid; }
-  .print-day-title { font-weight:700; font-size:10pt; color:#d47fa6; margin-bottom:6px; border-bottom:1px solid #f0d0e0; padding-bottom:4px; }
-  .print-day-tag { font-size:7pt; color:#aaa; margin-bottom:6px; }
-  .print-block { font-size:8pt; margin-bottom:3px; padding:3px 5px; border-radius:4px; }
-  .print-block-time { font-weight:700; color:#888; margin-right:4px; }
+  * { visibility:hidden; }
+  #print-area, #print-area * { visibility:visible; }
+  #print-area {
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    display:block !important;
+  }
+  @page { size:A4 landscape; margin:8mm; }
 }
 #print-area { display:none; }
-.print-btns { display:flex; gap:8px; padding:12px 12px 0; }
-.print-fab { flex:1; padding:13px; background:linear-gradient(135deg,#9d86e8,#7c5cbf);
-  color:#fff; border:none; border-radius:16px; font-size:.85rem; font-weight:700;
-  cursor:pointer; font-family:'Noto Sans JP',sans-serif; }
+.print-fab { width:100%; padding:13px; background:linear-gradient(135deg,#9d86e8,#7c5cbf);
+  color:#fff; border:none; border-radius:16px; font-size:.92rem; font-weight:700;
+  cursor:pointer; font-family:'Noto Sans JP',sans-serif; margin-top:8px; }
+.print-week { display:grid; grid-template-columns:repeat(6,1fr); gap:5px;
+  width:100%; height:100%; font-family:'Noto Sans JP',sans-serif; }
+.print-day { border:1px solid #f0d0e0; border-radius:6px; padding:6px; overflow:hidden; }
+.print-day-title { font-weight:700; font-size:9pt; color:#d47fa6; margin-bottom:3px;
+  border-bottom:1px solid #f0d0e0; padding-bottom:3px; }
+.print-day-tag { font-size:6.5pt; color:#aaa; margin-bottom:4px; }
+.print-block { font-size:7pt; margin-bottom:2px; padding:2px 4px; border-radius:3px; line-height:1.4; }
+.print-block-time { font-weight:700; color:#888; margin-right:3px; }
 </style>
 </head>
 <body>
@@ -198,7 +202,7 @@ body{font-family:'Noto Sans JP',sans-serif;background:#fff9f5;color:#333;overscr
 <div class="screen" id="sc-week"></div>
 <div class="screen" id="sc-edit"></div>
 
-<div id="print-area" style="display:none;position:absolute;"></div>
+<div id="print-area" style="display:none;"></div>
 <div class="tb-bar">
   <button class="tb active" onclick="goTab('now',this)"><span class="tb-icon">⏰</span><span class="tb-label">いま</span></button>
   <button class="tb" onclick="goTab('today',this)"><span class="tb-icon">📋</span><span class="tb-label">今日</span></button>
@@ -609,23 +613,35 @@ function doImport(){
 
 
 function doPrint() {
-  const area = document.getElementById('print-area');
-  let h = '<div class="print-week">';
+  let rows = '';
   DAYS.forEach(day => {
-    h += `<div class="print-day">
-      <div class="print-day-title">${day.label}</div>
-      <div class="print-day-tag">${day.tag}</div>`;
+    let blocks = '';
     day.blocks.forEach(b => {
       const bc = BC[b.c] || BC['act-custom'];
-      h += `<div class="print-block" style="background:${bc.bg}">
-        <span class="print-block-time">${b.t}</span>${b.n}
-      </div>`;
+      blocks += `<div style="font-size:7pt;margin-bottom:2px;padding:2px 4px;border-radius:3px;background:${bc.bg};line-height:1.4;">
+        <span style="font-weight:700;color:#888;margin-right:3px;">${b.t}</span>${b.n}</div>`;
     });
-    h += '</div>';
+    rows += `<div style="border:1px solid #f0d0e0;border-radius:6px;padding:6px;overflow:hidden;">
+      <div style="font-weight:700;font-size:9pt;color:#d47fa6;margin-bottom:3px;border-bottom:1px solid #f0d0e0;padding-bottom:3px;">${day.label}</div>
+      <div style="font-size:6.5pt;color:#aaa;margin-bottom:4px;">${day.tag}</div>
+      ${blocks}
+    </div>`;
   });
-  h += '</div>';
-  area.innerHTML = h;
-  window.print();
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      body { margin:0; font-family:'Noto Sans JP',sans-serif; }
+      .week { display:grid; grid-template-columns:repeat(${DAYS.length},1fr); gap:5px; padding:8mm; height:calc(100vh - 16mm); }
+      @page { size:A4 landscape; margin:0; }
+    </style>
+  </head><body>
+    <div class="week">${rows}</div>
+    <script>window.onload=function(){window.print();}<\/script>
+  </body></html>`;
+
+  const w = window.open('', '_blank');
+  w.document.write(html);
+  w.document.close();
 }
 
 function askNotif(){
