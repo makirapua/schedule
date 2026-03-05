@@ -485,6 +485,7 @@ function renderWeek(){
     h+='</div>';
   });
   h+='</div>';
+  h+='<div style="padding:12px 12px 0;"><button class="print-fab" onclick="doPrint()">🖨️ A3で印刷する</button></div>';
   el.innerHTML=h;
 }
 function jumpDay(i){todayDi=i;goTab('today',document.querySelectorAll('.tb')[1]);}
@@ -508,7 +509,7 @@ function renderEdit(){
       </div></div>`;
   });
   list+=`<button class="add-fab" onclick="openEmModal(null)">＋ 予定を追加</button>
-    <button class="imp-fab" onclick="document.getElementById('impText').value='';document.getElementById('impModal').classList.add('show')">📋 テキストで一括更新</button><button class="print-fab" onclick="doPrint()">🖨️ A3で印刷する</button></div>`;
+    <button class="imp-fab" onclick="document.getElementById('impText').value='';document.getElementById('impModal').classList.add('show')">📋 テキストで一括更新</button></div>`;
   el.innerHTML=tabs+list;
 }
 function switchEditDay(i){editDi=i;renderEdit();}
